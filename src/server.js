@@ -6,9 +6,11 @@ const path = require('path');
 
 const EditorCompartido = require('./EditorCompartido');
 const Desarrollador = require('./Desarrollador');
+const db = require('./database');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '../')));
 
 const server = http.createServer(app);
@@ -18,7 +20,7 @@ const io = new Server(server, {
 
 const editor = new EditorCompartido();
 
-// Rutas
+// Rutas de páginas
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
@@ -31,7 +33,31 @@ app.get('/apoyo', (req, res) => {
   res.sendFile(path.join(__dirname, '../apoyo.html'));
 });
 
-// Socket.IO
+// API de Tareas
+app.get('/api/tareas', (req, res) => {
+  res.json(db.obtenerTareas());
+});
+
+app.post('/api/tareas', (req, res) => {
+  const { titulo, propietario } = req.body;
+  const id = db.crearTarea(titulo, propietario);
+  res.json({ id, titulo, propietario, estado: 'Pendiente', motivoApoyo: null });
+});
+
+app.put('/api/tareas/:id', (req, res) => {
+  const { estado, motivoApoyo, quienMarca } = req.body;
+  const tarea = db.obtenerTarea(req.params.id);
+
+  if (!tarea) return res.status(404).json({ error: 'Tarea no encontrada' });
+  if (quienMarca !== tarea.propietario) {
+    return res.status(403).json({ error: 'Solo el propietario puede marcar esta tarea' });
+  }
+
+  db.actualizarTarea(req.params.id, estado, motivoApoyo);
+  res.json({ ok: true });
+});
+
+// Socket.IO - Editor
 io.on('connection', (socket) => {
   console.log('Desarrollador conectado:', socket.id);
 
@@ -43,13 +69,15 @@ io.on('connection', (socket) => {
 
   const dev = new Desarrollador(socket.id, 'Dev-' + socket.id);
   editor.abrirArchivo(dev, 'archivo.js');
-
   io.emit('num-desarrolladores', editor.desarrolladores.length);
 
-  socket.emit('contenido-inicial', editor.archivoActivo.leerContenido());
+  // Cargar contenido desde la BD
+  const contenidoGuardado = db.obtenerContenidoEditor();
+  socket.emit('contenido-inicial', contenidoGuardado);
 
   socket.on('cambio', (contenido) => {
     editor.mostrarCambios(socket.id, contenido);
+    db.guardarContenidoEditor(contenido);
     socket.broadcast.emit('actualizar', contenido);
   });
 

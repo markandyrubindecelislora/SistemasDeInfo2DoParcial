@@ -14,8 +14,8 @@
     .container { padding: 24px; display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; width: 100%; }
     .card { background: #313244; border: 1px solid #45475a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
     .card h2 { font-size: 16px; color: #89b4fa; }
-    input, select, textarea { background: #181825; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; padding: 10px; font-size: 14px; width: 100%; outline: none; font-family: Arial, sans-serif; }
-    input:focus, select:focus, textarea:focus { border-color: #89b4fa; }
+    input, select { background: #181825; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; padding: 10px; font-size: 14px; width: 100%; outline: none; }
+    input:focus, select:focus { border-color: #89b4fa; }
     button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; transition: opacity 0.2s; }
     button:hover { opacity: 0.85; }
     .btn-primary { background: #1F4E79; color: white; }
@@ -26,8 +26,6 @@
     .badge-estado { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
     .Pendiente { background: #313244; color: #cdd6f4; }
     .RequiereApoyo { background: #e74c3c; color: white; }
-    .EnProgreso { background: #e67e22; color: white; }
-    .Completada { background: #2ecc71; color: white; }
     .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; }
     .msg.ok { background: #2ecc7133; color: #2ecc71; }
     .msg.error { background: #e74c3c33; color: #e74c3c; }
@@ -42,7 +40,6 @@
 
 <div class="container">
 
-  <!-- Crear tarea -->
   <div class="card">
     <h2>📝 Crear nueva tarea</h2>
     <input id="inputTitulo" type="text" placeholder="Título de la tarea" />
@@ -51,7 +48,6 @@
     <div id="msgCrear"></div>
   </div>
 
-  <!-- Marcar apoyo -->
   <div class="card">
     <h2>🆘 Marcar tarea como requiere apoyo</h2>
     <select id="selectTarea">
@@ -63,19 +59,21 @@
     <div id="msgApoyo"></div>
   </div>
 
-  <!-- Lista de tareas -->
   <div class="card">
     <h2>📋 Tareas registradas</h2>
-    <div id="listaTareas">No hay tareas aún.</div>
+    <div id="listaTareas">Cargando...</div>
   </div>
 
 </div>
 
 <script>
-  let tareas = [];
-  let contador = 1;
+  async function cargarTareas() {
+    const res = await fetch('/api/tareas');
+    const tareas = await res.json();
+    actualizarUI(tareas);
+  }
 
-  function crearTarea() {
+  async function crearTarea() {
     const titulo = document.getElementById('inputTitulo').value.trim();
     const propietario = document.getElementById('inputPropietario').value.trim();
     const msg = document.getElementById('msgCrear');
@@ -85,51 +83,52 @@
       return;
     }
 
-    const tarea = {
-      id: contador++,
-      titulo,
-      propietario,
-      estado: 'Pendiente',
-      motivoApoyo: null
-    };
+    const res = await fetch('/api/tareas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titulo, propietario })
+    });
 
-    tareas.push(tarea);
-    document.getElementById('inputTitulo').value = '';
-    document.getElementById('inputPropietario').value = '';
-    msg.innerHTML = '<div class="msg ok">✅ Tarea creada correctamente.</div>';
-    setTimeout(() => msg.innerHTML = '', 2000);
-    actualizarUI();
+    if (res.ok) {
+      document.getElementById('inputTitulo').value = '';
+      document.getElementById('inputPropietario').value = '';
+      msg.innerHTML = '<div class="msg ok">✅ Tarea creada correctamente.</div>';
+      setTimeout(() => msg.innerHTML = '', 2000);
+      cargarTareas();
+    }
   }
 
-  function marcarApoyo() {
-    const selectTarea = document.getElementById('selectTarea');
+  async function marcarApoyo() {
+    const id = document.getElementById('selectTarea').value;
     const quienMarca = document.getElementById('inputQuienMarca').value.trim();
-    const motivo = document.getElementById('inputMotivo').value.trim();
+    const motivoApoyo = document.getElementById('inputMotivo').value.trim();
     const msg = document.getElementById('msgApoyo');
-    const id = parseInt(selectTarea.value);
 
-    if (!id || !quienMarca || !motivo) {
+    if (!id || !quienMarca || !motivoApoyo) {
       msg.innerHTML = '<div class="msg error">Completa todos los campos.</div>';
       return;
     }
 
-    const tarea = tareas.find(t => t.id === id);
+    const res = await fetch(`/api/tareas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'RequiereApoyo', motivoApoyo, quienMarca })
+    });
 
-    if (quienMarca !== tarea.propietario) {
-      msg.innerHTML = '<div class="msg error">❌ Solo el propietario puede marcar esta tarea.</div>';
-      return;
+    const data = await res.json();
+
+    if (res.ok) {
+      document.getElementById('inputQuienMarca').value = '';
+      document.getElementById('inputMotivo').value = '';
+      msg.innerHTML = '<div class="msg ok">✅ Tarea marcada como requiere apoyo.</div>';
+      setTimeout(() => msg.innerHTML = '', 2000);
+      cargarTareas();
+    } else {
+      msg.innerHTML = `<div class="msg error">❌ ${data.error}</div>`;
     }
-
-    tarea.estado = 'RequiereApoyo';
-    tarea.motivoApoyo = motivo;
-    document.getElementById('inputQuienMarca').value = '';
-    document.getElementById('inputMotivo').value = '';
-    msg.innerHTML = '<div class="msg ok">✅ Tarea marcada como requiere apoyo.</div>';
-    setTimeout(() => msg.innerHTML = '', 2000);
-    actualizarUI();
   }
 
-  function actualizarUI() {
+  function actualizarUI(tareas) {
     const lista = document.getElementById('listaTareas');
     const select = document.getElementById('selectTarea');
 
@@ -152,6 +151,8 @@
       </div>
     `).join('');
   }
+
+  cargarTareas();
 </script>
 
 </body>
