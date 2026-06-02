@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TrabajoColab - Editor Compartido</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1F4E79;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 { font-size: 20px; color: white; }
+
+    #estado {
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #2ecc71;
+      color: white;
+      font-weight: bold;
+    }
+
+    #estado.esperando { background: #e67e22; }
+    #estado.lleno { background: #e74c3c; }
+
+    .info-bar {
+      background: #313244;
+      padding: 8px 24px;
+      font-size: 13px;
+      display: flex;
+      gap: 24px;
+    }
+
+    .info-bar span { color: #89b4fa; font-weight: bold; }
+
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    textarea {
+      flex: 1;
+      background: #181825;
+      color: #cdd6f4;
+      border: 2px solid #313244;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 15px;
+      font-family: 'Courier New', monospace;
+      resize: none;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    textarea:focus { border-color: #89b4fa; }
+    textarea.actualizado { border-color: #2ecc71; }
+
+    #log {
+      background: #181825;
+      border: 1px solid #313244;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      height: 80px;
+      overflow-y: auto;
+      color: #a6e3a1;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🖊️ TrabajoColab — Editor Compartido</h1>
+  <div id="estado" class="esperando">Conectando...</div>
+</header>
+
+<div class="info-bar">
+  <div>Mi ID: <span id="miId">—</span></div>
+  <div>Archivo: <span>archivo.js</span></div>
+  <div>Desarrolladores conectados: <span id="numDevs">0</span></div>
+</div>
+
+<div class="editor-container">
+  <textarea id="editor" placeholder="Escribe tu código aquí..."></textarea>
+  <div id="log">📋 Registro de actividad...</div>
+</div>
+
+<script>
+  const socket = io('http://localhost:3000');
+  const editor = document.getElementById('editor');
+  const estado = document.getElementById('estado');
+  const miId = document.getElementById('miId');
+  const log = document.getElementById('log');
+  const numDevs = document.getElementById('numDevs');
+
+  function registrar(msg) {
+    const hora = new Date().toLocaleTimeString();
+    log.innerHTML += `<br>[${hora}] ${msg}`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  socket.on('connect', () => {
+    miId.textContent = socket.id.substring(0, 8) + '...';
+    estado.textContent = '✅ Conectado';
+    estado.className = '';
+    registrar('Conectado al editor compartido.');
+  });
+
+  socket.on('contenido-inicial', (contenido) => {
+    editor.value = contenido;
+    registrar('Contenido inicial cargado.');
+  });
+
+  socket.on('actualizar', (contenido) => {
+    editor.value = contenido;
+    editor.classList.add('actualizado');
+    setTimeout(() => editor.classList.remove('actualizado'), 1000);
+    registrar('Cambio recibido del otro desarrollador.');
+  });
+
+  socket.on('num-desarrolladores', (num) => {
+    numDevs.textContent = num;
+  });
+
+  socket.on('editor-lleno', (msg) => {
+    estado.textContent = '🚫 Editor lleno';
+    estado.className = 'lleno';
+    editor.disabled = true;
+    registrar('No se pudo conectar: ' + msg);
+  });
+
+  socket.on('disconnect', () => {
+    estado.textContent = '⚠️ Desconectado';
+    estado.className = 'esperando';
+    registrar('Desconectado del servidor.');
+  });
+
+  let timeout;
+  editor.addEventListener('input', () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      socket.emit('cambio', editor.value);
+      registrar('Cambio enviado al otro desarrollador.');
+    }, 300);
+  });
+</script>
+
+</body>
+</html>
