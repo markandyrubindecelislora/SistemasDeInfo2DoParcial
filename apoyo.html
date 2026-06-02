@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema de Apoyo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #1e1e2e; color: #cdd6f4; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1F4E79; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 20px; color: white; }
+    a.back { color: #89b4fa; font-size: 13px; text-decoration: none; }
+    a.back:hover { text-decoration: underline; }
+    .container { padding: 24px; display: flex; flex-direction: column; gap: 20px; max-width: 700px; margin: 0 auto; width: 100%; }
+    .card { background: #313244; border: 1px solid #45475a; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .card h2 { font-size: 16px; color: #89b4fa; }
+    input, select, textarea { background: #181825; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; padding: 10px; font-size: 14px; width: 100%; outline: none; font-family: Arial, sans-serif; }
+    input:focus, select:focus, textarea:focus { border-color: #89b4fa; }
+    button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; }
+    .btn-primary { background: #1F4E79; color: white; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .tarea-item { background: #181825; border: 1px solid #45475a; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .tarea-item .titulo { font-weight: bold; font-size: 15px; }
+    .tarea-item .meta { font-size: 12px; color: #a6adc8; }
+    .badge-estado { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+    .Pendiente { background: #313244; color: #cdd6f4; }
+    .RequiereApoyo { background: #e74c3c; color: white; }
+    .EnProgreso { background: #e67e22; color: white; }
+    .Completada { background: #2ecc71; color: white; }
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+    .msg.ok { background: #2ecc7133; color: #2ecc71; }
+    .msg.error { background: #e74c3c33; color: #e74c3c; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🆘 Sistema de Apoyo</h1>
+  <a class="back" href="/">← Volver al inicio</a>
+</header>
+
+<div class="container">
+
+  <!-- Crear tarea -->
+  <div class="card">
+    <h2>📝 Crear nueva tarea</h2>
+    <input id="inputTitulo" type="text" placeholder="Título de la tarea" />
+    <input id="inputPropietario" type="text" placeholder="Tu nombre (propietario)" />
+    <button class="btn-primary" onclick="crearTarea()">Crear tarea</button>
+    <div id="msgCrear"></div>
+  </div>
+
+  <!-- Marcar apoyo -->
+  <div class="card">
+    <h2>🆘 Marcar tarea como requiere apoyo</h2>
+    <select id="selectTarea">
+      <option value="">Selecciona una tarea...</option>
+    </select>
+    <input id="inputQuienMarca" type="text" placeholder="Tu nombre" />
+    <input id="inputMotivo" type="text" placeholder="Motivo de la dificultad" />
+    <button class="btn-danger" onclick="marcarApoyo()">Marcar como requiere apoyo</button>
+    <div id="msgApoyo"></div>
+  </div>
+
+  <!-- Lista de tareas -->
+  <div class="card">
+    <h2>📋 Tareas registradas</h2>
+    <div id="listaTareas">No hay tareas aún.</div>
+  </div>
+
+</div>
+
+<script>
+  let tareas = [];
+  let contador = 1;
+
+  function crearTarea() {
+    const titulo = document.getElementById('inputTitulo').value.trim();
+    const propietario = document.getElementById('inputPropietario').value.trim();
+    const msg = document.getElementById('msgCrear');
+
+    if (!titulo || !propietario) {
+      msg.innerHTML = '<div class="msg error">Completa todos los campos.</div>';
+      return;
+    }
+
+    const tarea = {
+      id: contador++,
+      titulo,
+      propietario,
+      estado: 'Pendiente',
+      motivoApoyo: null
+    };
+
+    tareas.push(tarea);
+    document.getElementById('inputTitulo').value = '';
+    document.getElementById('inputPropietario').value = '';
+    msg.innerHTML = '<div class="msg ok">✅ Tarea creada correctamente.</div>';
+    setTimeout(() => msg.innerHTML = '', 2000);
+    actualizarUI();
+  }
+
+  function marcarApoyo() {
+    const selectTarea = document.getElementById('selectTarea');
+    const quienMarca = document.getElementById('inputQuienMarca').value.trim();
+    const motivo = document.getElementById('inputMotivo').value.trim();
+    const msg = document.getElementById('msgApoyo');
+    const id = parseInt(selectTarea.value);
+
+    if (!id || !quienMarca || !motivo) {
+      msg.innerHTML = '<div class="msg error">Completa todos los campos.</div>';
+      return;
+    }
+
+    const tarea = tareas.find(t => t.id === id);
+
+    if (quienMarca !== tarea.propietario) {
+      msg.innerHTML = '<div class="msg error">❌ Solo el propietario puede marcar esta tarea.</div>';
+      return;
+    }
+
+    tarea.estado = 'RequiereApoyo';
+    tarea.motivoApoyo = motivo;
+    document.getElementById('inputQuienMarca').value = '';
+    document.getElementById('inputMotivo').value = '';
+    msg.innerHTML = '<div class="msg ok">✅ Tarea marcada como requiere apoyo.</div>';
+    setTimeout(() => msg.innerHTML = '', 2000);
+    actualizarUI();
+  }
+
+  function actualizarUI() {
+    const lista = document.getElementById('listaTareas');
+    const select = document.getElementById('selectTarea');
+
+    select.innerHTML = '<option value="">Selecciona una tarea...</option>';
+    tareas.forEach(t => {
+      select.innerHTML += `<option value="${t.id}">${t.titulo} (${t.propietario})</option>`;
+    });
+
+    if (tareas.length === 0) {
+      lista.innerHTML = 'No hay tareas aún.';
+      return;
+    }
+
+    lista.innerHTML = tareas.map(t => `
+      <div class="tarea-item">
+        <div class="titulo">${t.titulo}</div>
+        <div class="meta">Propietario: ${t.propietario}</div>
+        <div><span class="badge-estado ${t.estado}">${t.estado}</span></div>
+        ${t.motivoApoyo ? `<div class="meta">Motivo: ${t.motivoApoyo}</div>` : ''}
+      </div>
+    `).join('');
+  }
+</script>
+
+</body>
+</html>

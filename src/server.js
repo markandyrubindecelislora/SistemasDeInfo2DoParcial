@@ -2,13 +2,14 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 
 const EditorCompartido = require('./EditorCompartido');
 const Desarrollador = require('./Desarrollador');
 
 const app = express();
 app.use(cors());
-app.use(express.static(__dirname + '/../'));
+app.use(express.static(path.join(__dirname, '../')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -17,6 +18,20 @@ const io = new Server(server, {
 
 const editor = new EditorCompartido();
 
+// Rutas
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../index.html'));
+});
+
+app.get('/editor', (req, res) => {
+  res.sendFile(path.join(__dirname, '../editor.html'));
+});
+
+app.get('/apoyo', (req, res) => {
+  res.sendFile(path.join(__dirname, '../apoyo.html'));
+});
+
+// Socket.IO
 io.on('connection', (socket) => {
   console.log('Desarrollador conectado:', socket.id);
 
